@@ -9,9 +9,6 @@ jobs:
   deploy:
     name: Deploy Lambda and Frontend
     runs-on: ubuntu-latest
-    env:
-      AWS_REGION: ${{ secrets.AWS_REGION }}
-      AWS_DEFAULT_REGION: ${{ secrets.AWS_REGION }}
 
     steps:
       - name: Checkout code
@@ -22,13 +19,7 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION }}
-
-      - name: Debug AWS region env variables (optional)
-        run: |
-          echo "AWS_REGION: $AWS_REGION"
-          echo "AWS_DEFAULT_REGION: $AWS_DEFAULT_REGION"
-          echo "GitHub secret AWS_REGION: ${{ secrets.AWS_REGION }}"
+          aws-region: us-east-1
 
       - name: Deploy Lambda function
         run: |
@@ -36,11 +27,10 @@ jobs:
           zip function.zip weather.py
           aws lambda update-function-code \
             --function-name ${{ secrets.LAMBDA_FUNCTION_NAME }} \
-            --region $AWS_REGION \
+            --region us-east-1 \
             --zip-file fileb://function.zip
           rm function.zip
 
       - name: Deploy Frontend to S3
         run: |
-          aws s3 sync frontend/ s3://${{ secrets.S3_BUCKET_NAME }}/ \
-            --region $AWS_REGION --delete
+          aws s3 sync frontend/ s3://${{ secrets.S3_BUCKET_NAME }}/ --region us-east-1 --delete
