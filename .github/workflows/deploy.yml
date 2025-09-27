@@ -1,54 +1,35 @@
-import json
-import urllib.request
-import urllib.parse
+name: Deploy Weather App
 
-def lambda_handler(event, context):
-    city = None
-    if "queryStringParameters" in event and event["queryStringParameters"]:
-        city = event["queryStringParameters"].get("city")
+on:
+  push:
+    branches:
+      - main
 
-    if not city:
-        return {
-            "statusCode": 400,
-            "headers": {"Content-Type": "application/json"},
-            "body": json.dumps({"error": "Missing 'city' query parameter"})
-        }
+jobs:
+  deploy:
+    name: Deploy Lambda and Frontend
+    runs-on: ubuntu-latest
 
-    try:
-        api_key = "0d13d4b9609bd0c9bab4badb869fd1a2"
-        encoded_city = urllib.parse.quote(city.strip())
-        url = f"http://api.openweathermap.org/data/2.5/weather?q={encoded_city}&appid={api_key}&units=metric"
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-        with urllib.request.urlopen(url) as response:
-            data = response.read()
-            weather = json.loads(data)
+      - name: Set up AWS CLI
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
 
-        result = {
-            "city": weather.get("name", city),
-            "temperature": weather["main"]["temp"],
-            "description": weather["weather"][0]["description"]
-        }
+      - name: Deploy Lambda function
+        run: |
+          cd lambda
+          # Make sure your Python file is named lambda_function.py
+          zip function.zip lambda_function.py
+          aws lambda update-function-code \
+            --function-name ${{ secrets.LAMBDA_FUNCTION_NAME }} \
+            --zip-file fileb://function.zip
 
-        return {
-            "statusCode": 200,
-            "headers": {
-                "Content-Type": "application/json",
-                "Access-Control-Allow-Origin": "*"  # allow browser calls
-            },
-            "body": json.dumps(result)
-        }
-
-    except urllib.error.HTTPError as e:
-        error_body = e.read().decode()
-        return {
-            "statusCode": e.code,
-            "headers": {"Content-Type": "application/json"},
-            "body": json.dumps({"error": error_body})
-        }
-
-    except Exception as e:
-        return {
-            "statusCode": 500,
-            "headers": {"Content-Type": "application/json"},
-            "body": json.dumps({"error": str(e)})
-        }
+      - name: Deploy Frontend to S3
+        run: |
+          aws s3 sync frontend/ s3://${{ secrets.S3_BUCKET_NAME }}/ --delete
