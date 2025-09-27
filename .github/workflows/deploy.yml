@@ -34,4 +34,13 @@ jobs:
         run: |
           cd lambda
           zip function.zip weather.py
-          aws lambda update-
+          aws lambda update-function-code \
+            --function-name ${{ secrets.LAMBDA_FUNCTION_NAME }} \
+            --region $AWS_REGION \
+            --zip-file fileb://function.zip
+          rm function.zip
+
+      - name: Deploy Frontend to S3
+        run: |
+          aws s3 sync frontend/ s3://${{ secrets.S3_BUCKET_NAME }}/ \
+            --region $AWS_REGION --delete
